@@ -5,7 +5,7 @@ build/*
 *.lst
 *.map
 *.sym
-
+*.xcodeproj/project.*
 *.hex
 *.o
 .dep
