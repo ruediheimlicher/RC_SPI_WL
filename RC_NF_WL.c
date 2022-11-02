@@ -357,8 +357,11 @@ void SPI_Init(void)
    //Master init
    // Set MOSI and SCK output, all others input
    SPI_DDR &= ~(1<<SPI_MISO);
-   SPI_DDR |= (1<<SPI_MOSI)|(1<<SPI_CLK)|(1<<SPI_SS);
+   SPI_PORT |= (1<<SPI_MISO);
    
+   
+   SPI_DDR |= (1<<SPI_MOSI)|(1<<SPI_CLK)|(1<<SPI_SS);
+   SPI_PORT |= (1<<SPI_SS);
    
    // Enable SPI, Master, set clock rate fck/16 
    SPCR =   (1<<SPE)|
@@ -375,7 +378,7 @@ void SPI_Init(void)
     */
    
 }
-
+/*
 void timer1_comp(void)
 {
    // Set pin for driving resistor low.
@@ -412,14 +415,14 @@ void timer1_comp(void)
    TCCR1B =   (1<<CS10);                        // F_CPU / 1
    //TCCR1B =  (1<<ICES1);                      // Input capture on rising edge
    TCNT1 = 0;
-   TIMSK |= (1<<TOIE1) | (1<<TICIE1);           // Timer interrupts on capture and overflow.
+   TIMSK1 |= (1<<TOIE1) | (1<<TICIE1);           // Timer interrupts on capture and overflow.
    sei();
 }
-
+*/
 
 #pragma mark timer1
 // Timer1 Servo
-/*
+
 void timer1(void)
 {
    
@@ -440,34 +443,26 @@ void timer1(void)
    //  TIMSK |= (1<<OCIE1A) | (1<<TICIE1); // OC1A Int enablad
 }
 
-*/
-
-ISR(TIMER1_CAPT_vect)
+ISR(TIMER1_OVF_vect)
 {
-   // Save the captured value and drop the drive line.
-   if (captured == 0)
-   {
-      // captured_value = ICR1;
-      captcounter++;
-      
-      if (adckanal == COMP_ADC_PIN_A)
-      {
-         mittelwertA[mposA++] = ICR1;           // Ringbuffer fuer gleitenden Mittelwert
-         mposA &= 0x03;                         // position incrementieren
-         COMP_PORT &= ~(1<<COMP_DRIVE_PIN_A);   // auf 4 beschraenken
-      }
-      
-      if (adckanal == COMP_ADC_PIN_B)
-      {
-         mittelwertB[mposB++] = ICR1;
-         mposB &= 0x03;
-         COMP_PORT &= ~(1<<COMP_DRIVE_PIN_B);
-      }
-      TCNT1 = 0;
-      captured = 1;
-   }
-   //TCNT1 = 0;
+   OSZIA_HI;
+   
 }
+
+
+ISR(TIMER1_COMPA_vect) // ca 4 us
+{
+   OSZIA_LO;
+   // 
+   loadcounter++;
+
+   
+   //OSZIA_HI;
+   // handle interrupt
+
+}
+
+
 
 /*
 #pragma mark INT0 WL
@@ -481,12 +476,12 @@ ISR(INT0_vect)
 
 void timer2(void)
 {
-   TCCR2 |= (1<<CS21);     // Start Timer 2 with prescaler 1024
-   TIMSK |= (1<< TOIE2);
-   TIMSK |= (1 << OCIE2);
-   TCCR2 |= (1 << WGM21);
+   TCCR2A|= (1<<CS21);     // Start Timer 2 with prescaler 1024
+   TIMSK2 |= (1<< TOIE2);
+   TIMSK2 |= (1 << OCIE2B);
+   TCCR2A |= (1 << WGM21);
    TCNT2=0;
-   OCR2   = 99; // 10kHz
+   OCR2A   = 99; // 10kHz
 }
 
 ISR(TIMER2_OVF_vect)
@@ -496,7 +491,7 @@ ISR(TIMER2_OVF_vect)
 }
 
 
-ISR(TIMER2_COMP_vect) // ca 4 us
+ISR(TIMER2_COMPA_vect) // ca 4 us
 {
    //OSZIA_LO;
    // 
@@ -529,7 +524,7 @@ int main (void)
    //	LCD_DDR |=(1<<LCD_CLOCK_PIN);
    
    deviceinit();
-   
+   delay_ms(100);
    SPI_Init();
    SPI_Master_init();
    lcd_initialize(LCD_FUNCTION_8x2, LCD_CMD_ENTRY_INC, LCD_CMD_ON);
@@ -563,14 +558,7 @@ int main (void)
    //
    lcd_clr_line(0);
    
-   //lcd_puts(" und");
-   /*
-    DDRC |= (1<<0);
-    DDRC |= (1<<1);
-    PORTC |= (1<<0);
-    PORTC &= ~(1<<1);
-    */
-   // timer1_comp();
+    // timer1_comp();
    initADC(2);
    
    uint8_t delaycount=10;
@@ -588,7 +576,7 @@ int main (void)
       //  PORTC |= (1<<0);
       loopCount0 ++;
       //_delay_ms(2);
-      LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+      //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
       //incoming = SPDR;
       
       if (wl_spi_status & (1<<WL_ISR_RECV)) // in ISR gesetzt, etwas ist angekommen, Master fragt nach Daten
@@ -808,11 +796,16 @@ int main (void)
          
          loopCount1++;
          
+         if (loopCount1 %32 == 0)
+         {
+            LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+         }
+         
          if ((loopCount1 >0x02AF) )//&& (!(Programmstatus & (1<<MANUELL))))
          {
               
             
-            LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+            //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
             
             
             // Anzeige PWM

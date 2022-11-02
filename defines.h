@@ -14,9 +14,9 @@
 /* CPU frequency */
 //#define F_CPU 8000000UL
 
-#define LOOPLED_PORT	PORTD
-#define LOOPLED_DDR	DDRD
-#define LOOPLED_PIN	4
+#define LOOPLED_PORT	PORTB
+#define LOOPLED_DDR	DDRB
+#define LOOPLED_PIN	7
 
 #define LOADDDR      DDRB
 #define LOADPORT     PORTB
