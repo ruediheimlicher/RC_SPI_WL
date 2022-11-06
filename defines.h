@@ -35,7 +35,7 @@
 //Oszi
 #define OSZIPORT           PORTD
 #define OSZIDDR            DDRD
-#define PULSA              6
+#define PULSA              4
 #define OSZIA_LO OSZIPORT &= ~(1<<PULSA)
 #define OSZIA_HI OSZIPORT |= (1<<PULSA)
 #define OSZIA_TOGG OSZIPORT ^= (1<<PULSA)

@@ -10,3 +10,4 @@ build/*
 *.o
 .dep
 run*
+RF24/*

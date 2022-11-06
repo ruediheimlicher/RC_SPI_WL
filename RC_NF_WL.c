@@ -14,6 +14,7 @@
 #include <avr/pgmspace.h>
 #include <string.h>
 #include <inttypes.h>
+#include <math.h>
 #include <avr/eeprom.h>
 //#define F_CPU 4000000UL  // 4 MHz
 #include <avr/delay.h>
@@ -29,14 +30,64 @@
 #include "wireless.c"
 #include "wl_module.h" 
 #include "nRF24L01.h"
+//#include "RF24.h"
 
 #define VREF 256
-
-// lookup-Tabelle KTY84
-
+#define SPI_BUFSIZE  4
 
 
+// von RC_PWM
+#define SERVOMAX  2000
+#define SERVOMIN  1000
+#define TIMER0_STARTWERT   0x40
 
+#define L_PORT 0 // index in servoportarray
+#define LX_PIN  1
+#define LX_PIN_HI  PORTB |= (1<<LX_PIN)
+#define LX_PIN_LO  PORTB &= ~(1<<LX_PIN)
+
+
+#define LY_PIN  2
+#define LY_PIN_HI  PORTB |= (1<<LY_PIN)
+#define LY_PIN_LO  PORTB &= ~(1<<LY_PIN)
+
+#define R_PORT 1
+#define RX_PIN  2
+#define RX_PIN_HI  PORTC |= (1<<RX_PIN)
+#define RX_PIN_LO  PORTC &= ~(1<<RX_PIN)
+
+#define RY_PIN  3
+#define RY_PIN_HI  PORTC |= (1<<RY_PIN)
+#define RY_PIN_LO  PORTC &= ~(1<<RY_PIN)
+
+
+
+
+
+#define LP_PIN  16
+#define RP_PIN  17
+
+#define LT_PIN   7
+#define RT_PIN  4
+
+
+static volatile uint8_t *servoportarray[] = { &PORTB, &PORTC, &PORTD };
+
+
+volatile uint8_t servopinarray[SPI_BUFSIZE];
+
+volatile uint8_t servowert = 0;
+volatile uint8_t lastservowert = 0;
+
+            
+volatile uint8_t           timer0startwert=TIMER0_STARTWERT;
+volatile uint16_t          Servo_ArrayInt[SPI_BUFSIZE] = {}; // unsigned Int
+
+
+
+
+uint8_t impulscounter = 0;
+uint16_t defaultwert = 800;
 
 uint16_t loopCount0=0;
 uint16_t loopCount1=0;
@@ -91,14 +142,14 @@ uint16_t pwmpos=0;
 
 
 volatile uint8_t					Programmstatus=0x00;
-	uint8_t Tastenwert=0;
-	uint8_t TastaturCount=0;
+uint8_t Tastenwert=0;
+uint8_t TastaturCount=0;
 volatile uint16_t					Manuellcounter=0; // Countr fuer Timeout	
-	uint16_t TastenStatus=0;
-	uint16_t Tastencount=0;
-	uint16_t Tastenprellen=0x01F;
+uint16_t TastenStatus=0;
+uint16_t Tastencount=0;
+uint16_t Tastenprellen=0x01F;
 
-volatile uint8_t data;
+
 
 volatile uint16_t	spiwaitcounter=0;
 
@@ -133,6 +184,8 @@ volatile uint16_t	firstruncounter=0x0F;
 volatile uint8_t wl_spi_status;
 char itoabuffer[20];
 volatile uint8_t wl_data[wl_module_PAYLOAD] = {};
+
+
 
 volatile uint8_t pipenummer = 0;
 
@@ -174,7 +227,32 @@ volatile uint8_t adckanal=0;
 
 // end ACD
 
-// end ACD
+#pragma mark RC
+
+struct PacketData 
+{
+   uint8_t lxAxisValue;
+   uint8_t lyAxisValue;
+   uint8_t rxAxisValue;
+   uint8_t ryAxisValue;
+   uint8_t lPotValue;  
+   uint8_t rPotValue;    
+   uint8_t switch1Value;
+   uint8_t switch2Value;
+   uint8_t switch3Value;
+   uint8_t switch4Value;  
+};
+
+struct PacketData receiverData;
+
+
+#define SIGNAL_TIMEOUT 500  // This is signal timeout in milli seconds. We will reset the data if no signal
+
+const uint64_t pipeIn = 0xF9E8F0F0E1LL;
+unsigned long lastRecvTime = 0;
+
+volatile uint8_t wl_spi_status;
+
 
 
 void delay_ms(unsigned int ms)
@@ -276,6 +354,8 @@ void deviceinit(void)
    ADCDDR &= ~(1<<PORTC5);
    ADCPORT &= ~(1<<PORTC5);
 
+   DDRB  |= (1<<PB1);
+   DDRB  |= (1<<PB2);
 
    
    PTDDR |= (1<<PT_LOAD_PIN); // Pin fuer Impuls-load von pT1000
@@ -428,37 +508,90 @@ void timer1(void)
    
    // https://www.mikrocontroller.net/topic/83609
    
+   int c=0;
+     
+   //TCCR1B |= (1<<CS11); // f/8
+  TCCR1B |= (1<<CS11); // f
+   TCNT1  = 0;                                          // reset Timer
    
-   OCR1A = 0x3E8;           // Pulsdauer 1ms
-   OCR1A = 0x200;
- 
-   ICR1 = 0x6400;          // 0x6400: Pulsabstand 50 ms
-   // http://www.ledstyles.de/index.php/Thread/18214-ATmega32U4-Schaltungen-PWM/
-   DDRB |= (1<<PB1);
+                              // Impulsdauer
+   OCR1B  = 0x500;            // Impulsdauer des Kanalimpulses
    
-   TCCR1A |= (1<<COM1A1)|(1<<COM1B1)|(1<<WGM10);
+   TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt:
+ //  TIMSK1 |= (1 << OCIE1B);  // enable timer compare interrupt:
+   OCR1A  = Servo_ArrayInt[(impulscounter & 0x07)]; // 
    
-   TCCR1B |= (1<<WGM12)|(1<<CS11);
    
-   //  TIMSK |= (1<<OCIE1A) | (1<<TICIE1); // OC1A Int enablad
 }
 
 ISR(TIMER1_OVF_vect)
 {
-   OSZIA_HI;
+   PORTB ^= (1<<PB2);
    
 }
 
-
+// MARK: TIMER1_COMPA_vect
 ISR(TIMER1_COMPA_vect) // ca 4 us
 {
-   OSZIA_LO;
+   OSZIA_TOGG;
    // 
    loadcounter++;
+   
+   if (impulscounter < SPI_BUFSIZE)
+   {
+      // Impulsdauer lesen
+      OCR1A  = Servo_ArrayInt[(impulscounter)]; 
 
+      // servowert setzen
+      servowert = (uint8_t)servopinarray[impulscounter];// Pin & PORT>>4
+      //uint8_t kanalport = (servowert & 0xF0)>>4;
+      //uint8_t kanalpin = servowert & 0x0F;
+      
+      *servoportarray[(servowert & 0xF0)>>4] |= (1<<(servowert & 0x0F));
+      
+      if(impulscounter == 0) // Start Impulspaket. ersten impuls setzen
+      {
+         
+      }
+      else // vorherigen Impuls beenden
+      {
+         *servoportarray[(lastservowert & 0xF0)>>4] &= ~(1<<(lastservowert & 0x0F));
+      }
+      lastservowert = servowert;
+      impulscounter++;
+   }
+   else 
+   {
+      // letzten Impuls beenden
+      *servoportarray[(lastservowert & 0xF0)>>4] &= ~(1<<(lastservowert & 0x0F));
+      impulscounter =0; // restart from beginning
+      OCR1A = 15000;
+   }
+   
+    
+   TCNT1  = 0;
+   if(OCR1A < 0xFFF0)
+   {
+      //OCR1A += 100;
+   }
+   else 
+   {
+      //OCR1A = 400;
+   }
+  
+
+}
+
+
+ISR(TIMER1_COMPB_vect) // ca 4 us
+{
+   //PORTB ^= (1<<PB2);
+   // 
+   loadcounter++;
+   TCNT1  = 0;
    
    //OSZIA_HI;
-   // handle interrupt
+ 
 
 }
 
@@ -476,17 +609,19 @@ ISR(INT0_vect)
 
 void timer2(void)
 {
-   TCCR2A|= (1<<CS21);     // Start Timer 2 with prescaler 1024
-   TIMSK2 |= (1<< TOIE2);
-   TIMSK2 |= (1 << OCIE2B);
-   TCCR2A |= (1 << WGM21);
-   TCNT2=0;
-   OCR2A   = 99; // 10kHz
+   DDRB |= (1<<PB2);
+   
+   TCCR2A = (1<<WGM21); // Wave Form Generation Mode 2: CTC, OC2A disconnected
+   TCCR2B = (1<<CS20)  ; // prescaler = 256
+   TIMSK2 = (1<<OCIE2A); // interrupt when Compare Match with OCR2A
+   OCR2A = 83 ; // 10kHz
+
+   
 }
 
 ISR(TIMER2_OVF_vect)
 {
-   //OSZIA_TOGG;
+   //PORTB ^= (1<<PB2);
    
 }
 
@@ -494,6 +629,7 @@ ISR(TIMER2_OVF_vect)
 ISR(TIMER2_COMPA_vect) // ca 4 us
 {
    //OSZIA_LO;
+   PORTB ^= (1<<PB2);
    // 
    loadcounter++;
 
@@ -506,7 +642,6 @@ ISR(TIMER2_COMPA_vect) // ca 4 us
 ISR(INT1_vect)
 {
    wl_spi_status |= (1<<WL_ISR_RECV);
-   
 }
 
 ISR (SPI_STC_vect)
@@ -515,6 +650,21 @@ ISR (SPI_STC_vect)
 }
 
 
+/*
+ // https://www.avrfreaks.net/forum/how-can-i-make-array-ports
+ static volatile uint8_t *myports[] = { &PORTD, &PORTB, &PORTC };
+
+ int main() {
+     uint8_t i,j;
+     for (i=0; i < 3; i++) {
+       *(myports[i]) |= 0x10;  // set this bit in each port
+     }
+ }
+ 
+ 
+ */
+
+// MARK: main
 
 int main (void)
 {
@@ -523,13 +673,38 @@ int main (void)
    //	LCD_DDR |=(1<<LCD_ENABLE_PIN);
    //	LCD_DDR |=(1<<LCD_CLOCK_PIN);
    
+   uint8_t pos = 0;
+   for (pos=0;pos<8;pos++)
+   {
+      Servo_ArrayInt[pos] = defaultwert + pos*100;
+   }
+   Servo_ArrayInt[0] = 400;
+   Servo_ArrayInt[1] = 600;
+   Servo_ArrayInt[2] = 800;
+   Servo_ArrayInt[3] = 1000;
+
+   /*
+   Servo_ArrayInt[4] = 400;
+   Servo_ArrayInt[5] = 800;
+   Servo_ArrayInt[6] = 1200;
+   Servo_ArrayInt[7] = 1600;
+   */
+   
+   servopinarray[0] = LX_PIN + (L_PORT<<4); // linker joystick
+   servopinarray[1] = LY_PIN + (L_PORT<<4);
+   servopinarray[2] = RX_PIN + (R_PORT<<4); // rechter joystick
+   servopinarray[3] = RY_PIN + (R_PORT<<4);
+
+ 
+   
+   
    deviceinit();
    delay_ms(100);
-   SPI_Init();
-   SPI_Master_init();
+//   SPI_Init();
+//   SPI_Master_init();
    lcd_initialize(LCD_FUNCTION_8x2, LCD_CMD_ENTRY_INC, LCD_CMD_ON);
    lcd_puts("Guten Tag\0");
-   delay_ms(1000);
+   delay_ms(200);
    
    lcd_cls();
    lcd_gotoxy(0,0);
@@ -568,8 +743,8 @@ int main (void)
    
    
    uint8_t eevar=13;
-   
-   timer2();
+  timer1();
+  // timer2();
    sei();
    while (1)
    {
@@ -593,10 +768,11 @@ int main (void)
          
          wl_spi_status &= ~(1<<WL_ISR_RECV);
          
+         /*
          lcd_gotoxy(6,0);
          lcd_putc('i');
          lcd_puthex(int0counter);
-         
+         */
          
          // MARK: WL Loop
          /*
@@ -796,18 +972,51 @@ int main (void)
          
          loopCount1++;
          
-         if (loopCount1 %32 == 0)
+         if (loopCount1 >0xAF)
          {
-            LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+            //OSZIA_TOGG;
+            //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
          }
          
          if ((loopCount1 >0x02AF) )//&& (!(Programmstatus & (1<<MANUELL))))
          {
-              
+             /* 
+            if(OCR1A < 1000)
+            {
+               OCR1A += 10;
+            }
+            else 
+            {
+               OCR1A = 400;
+            }
+*/
+            lcd_gotoxy(0,0);
+            lcd_puts(" OCR1A ");
+            lcd_putint12(OCR1A);
+            LOOPLED_PORT ^= (1<<LOOPLED_PIN);
             
-            //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+            for (uint8_t pos = 0;pos < 4;pos++)
+            {
+               uint8_t tempservowert = (uint8_t)servopinarray[pos];// Pin & PORT>>4
+               lcd_gotoxy(pos * 4,1);
+               lcd_puthex(tempservowert);
+               lcd_putc(' ');
+               if(pos > 1)
+               {
+                //  *servoportarray[(tempservowert & 0xF0)>>4] |= (1<<tempservowert & 0x0F);
+                //  _delay_ms(4);
+                 // *servoportarray[(tempservowert & 0xF0)>>4] &= ~(1<<tempservowert & 0x0F);
+               }
+            }
+            lcd_gotoxy(0,2);
             
-            
+            uint8_t tempservowert = (uint8_t)servopinarray[2];
+            lcd_puthex(tempservowert);
+            lcd_putc(' ');
+            lcd_puthex((tempservowert & 0xF0)>>4);
+            lcd_putc(' ');
+            lcd_puthex(tempservowert & 0x0F);
+            lcd_putc(' ');
             // Anzeige PWM
             /*
              lcd_gotoxy(0,0);
