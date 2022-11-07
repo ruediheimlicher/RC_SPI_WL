@@ -59,7 +59,7 @@ FORMAT = ihex
 
 
 # Target file name (without extension).
-TARGET = RC_NF_WL
+TARGET = RC_NRF_R
 
 
 # List C source files here. (C dependencies are automatically generated.)

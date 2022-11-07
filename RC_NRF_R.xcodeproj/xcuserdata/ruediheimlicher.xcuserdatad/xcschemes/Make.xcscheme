@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0142E2590A37DAD800461F0A"
-               BuildableName = "Debug"
-               BlueprintName = "Debug"
-               ReferencedContainer = "container:RC_NF_WL.xcodeproj">
+               BlueprintIdentifier = "01706F540A347F6900E43B08"
+               BuildableName = "Make"
+               BlueprintName = "Make"
+               ReferencedContainer = "container:RC_NRF_R.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -43,10 +43,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "0142E2590A37DAD800461F0A"
-            BuildableName = "Debug"
-            BlueprintName = "Debug"
-            ReferencedContainer = "container:RC_NF_WL.xcodeproj">
+            BlueprintIdentifier = "01706F540A347F6900E43B08"
+            BuildableName = "Make"
+            BlueprintName = "Make"
+            ReferencedContainer = "container:RC_NRF_R.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </LaunchAction>

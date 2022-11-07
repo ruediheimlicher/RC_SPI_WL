@@ -17,7 +17,7 @@
                BlueprintIdentifier = "01706F5B0A34807400E43B08"
                BuildableName = "Program"
                BlueprintName = "Program"
-               ReferencedContainer = "container:RC_NF_WL.xcodeproj">
+               ReferencedContainer = "container:RC_NRF_R.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,7 +46,7 @@
             BlueprintIdentifier = "01706F5B0A34807400E43B08"
             BuildableName = "Program"
             BlueprintName = "Program"
-            ReferencedContainer = "container:RC_NF_WL.xcodeproj">
+            ReferencedContainer = "container:RC_NRF_R.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </LaunchAction>

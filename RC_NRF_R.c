@@ -187,7 +187,7 @@ volatile uint8_t wl_data[wl_module_PAYLOAD] = {};
 
 
 
-volatile uint8_t pipenummer = 0;
+volatile uint8_t pipenummer = 1;
 
 //volatile char text[] = {'*','M','a','s','t','e','r','*'};
 char* text = "* Master *";
@@ -641,6 +641,7 @@ ISR(TIMER2_COMPA_vect) // ca 4 us
 #pragma mark INT1 WL
 ISR(INT1_vect)
 {
+   
    wl_spi_status |= (1<<WL_ISR_RECV);
 }
 
@@ -756,7 +757,8 @@ int main (void)
       
       if (wl_spi_status & (1<<WL_ISR_RECV)) // in ISR gesetzt, etwas ist angekommen, Master fragt nach Daten
       {
-         
+         lcd_gotoxy(19,0);
+         lcd_putc('$');
          if (int0counter < 0x2F)
          {
             int0counter++;
@@ -794,17 +796,18 @@ int main (void)
          pipenummer = wl_module_get_rx_pipe();
          
          delay_ms(3);
+         /*
          lcd_gotoxy(10,0);
          lcd_putc('p');
          lcd_puthex(pipenummer);
-                  
+         */         
          
          if (pipenummer == WL_PIPE) // Request ist fuer uns, Data schicken
          {
-            lcd_gotoxy(14,0);
-            lcd_puts("p ok");
+ //           lcd_gotoxy(14,0);
+ //          lcd_puts("p ok");
             //lcd_gotoxy(0,0);
-            delay_ms(2);
+//            delay_ms(2);
             //lcd_puts("          ");
             if (wl_status & (1<<RX_DR)) // IRQ: Package has been received
             {
@@ -818,11 +821,11 @@ int main (void)
                //lcd_gotoxy(0,3);
                //lcd_puthex(rec);
                //lcd_putc(' ');
-               delay_ms(3);
+  //             delay_ms(3);
                uint8_t readstatus = wl_module_get_data((void*)&wl_data); // Reads wl_module_PAYLOAD bytes into data array
-               delay_ms(3);
+ //              delay_ms(3);
                wl_module_config_register(STATUS, (1<<RX_DR)); //Clear Interrupt Bit
-               delay_ms(3);
+  //             delay_ms(3);
                uint8_t i;
                
                //lcd_gotoxy(0,0);
@@ -899,7 +902,7 @@ int main (void)
                
             }
             
-         }
+         } // if pipenummer
          else
          {
             // lcd_puts("--");
@@ -998,7 +1001,7 @@ int main (void)
             for (uint8_t pos = 0;pos < 4;pos++)
             {
                uint8_t tempservowert = (uint8_t)servopinarray[pos];// Pin & PORT>>4
-               lcd_gotoxy(pos * 4,1);
+               lcd_gotoxy(pos * 3,3);
                lcd_puthex(tempservowert);
                lcd_putc(' ');
                if(pos > 1)
@@ -1008,6 +1011,12 @@ int main (void)
                  // *servoportarray[(tempservowert & 0xF0)>>4] &= ~(1<<tempservowert & 0x0F);
                }
             }
+            
+            lcd_gotoxy(10,0);
+            lcd_putc('p');
+            lcd_puthex(pipenummer);
+                     
+/*
             lcd_gotoxy(0,2);
             
             uint8_t tempservowert = (uint8_t)servopinarray[2];
@@ -1017,6 +1026,7 @@ int main (void)
             lcd_putc(' ');
             lcd_puthex(tempservowert & 0x0F);
             lcd_putc(' ');
+ */
             // Anzeige PWM
             /*
              lcd_gotoxy(0,0);

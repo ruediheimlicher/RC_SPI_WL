@@ -56,8 +56,6 @@ void wl_module_init()
    INTERRUPT_PORT |= (1<<INT1_PIN);
    
    
-   
-   
    wl_module_CE_lo;
    wl_module_CSN_hi;
    
