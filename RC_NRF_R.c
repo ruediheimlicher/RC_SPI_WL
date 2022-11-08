@@ -796,11 +796,6 @@ int main (void)
          pipenummer = wl_module_get_rx_pipe();
          
          delay_ms(3);
-         /*
-         lcd_gotoxy(10,0);
-         lcd_putc('p');
-         lcd_puthex(pipenummer);
-         */         
          
          if (pipenummer == WL_PIPE) // Request ist fuer uns, Data schicken
          {
@@ -994,8 +989,8 @@ int main (void)
             }
 */
             lcd_gotoxy(0,0);
-            lcd_puts(" OCR1A ");
-            lcd_putint12(OCR1A);
+            //lcd_puts(" OCR1A ");
+            //lcd_putint12(OCR1A);
             LOOPLED_PORT ^= (1<<LOOPLED_PIN);
             
             for (uint8_t pos = 0;pos < 4;pos++)
@@ -1012,7 +1007,7 @@ int main (void)
                }
             }
             
-            lcd_gotoxy(10,0);
+            lcd_gotoxy(12,0);
             lcd_putc('p');
             lcd_puthex(pipenummer);
                      
