@@ -157,7 +157,7 @@ volatile uint16_t	spiwaitcounter=0;
 volatile uint32_t	loadcounter=0; // schaltet load fuer PowerBanl-Reset ein
 
 
-
+uint8_t  WL_PIPE  = 1;
 
 
 //PWM-detector
@@ -178,6 +178,7 @@ volatile uint8_t spi_status=0;
 volatile uint8_t wl_status=0;
 volatile uint8_t PTX=0;
 volatile uint8_t int0counter=0;
+volatile uint8_t int1counter=0;
 volatile uint8_t sendcounter=0;
 volatile uint16_t	wlwaitcounter=0;
 volatile uint16_t	firstruncounter=0x0F;
@@ -333,11 +334,11 @@ void deviceinit(void)
 //	MANUELL_DDR |= (1<<MANUELLPIN);		//Pin 5 von PORT D als Ausgang fuer Manuell
 	//MANUELL_PORT &= ~(1<<MANUELLPIN);
 
-   LOADDDR |= (1<<LOADPIN);
-   LOADPORT |= (1<<LOADPIN);
+   //LOADDDR |= (1<<LOADPIN);
+   //LOADPORT |= (1<<LOADPIN);
    
-   PWM_DETECT_DDR &= ~(1<<PWM_DETECT);
-   PWM_DETECT_PORT |= (1<<PWM_DETECT);
+   //PWM_DETECT_DDR &= ~(1<<PWM_DETECT);
+   //PWM_DETECT_PORT |= (1<<PWM_DETECT);
    
    LOOPLED_DDR |= (1<<LOOPLED_PIN);
 	//PORTD &= ~(1<<CONTROL_B);
@@ -354,57 +355,25 @@ void deviceinit(void)
    ADCDDR &= ~(1<<PORTC5);
    ADCPORT &= ~(1<<PORTC5);
 
-   DDRB  |= (1<<PB1);
-   DDRB  |= (1<<PB2);
+   //DDRB  |= (1<<PB1);
+   //DDRB  |= (1<<PB2);
 
    
-   PTDDR |= (1<<PT_LOAD_PIN); // Pin fuer Impuls-load von pT1000
-   PTPORT |= (1<<PT_LOAD_PIN);// hi
+  // PTDDR |= (1<<PT_LOAD_PIN); // Pin fuer Impuls-load von pT1000
+  // PTPORT |= (1<<PT_LOAD_PIN);// hi
 	
  //  DDRB |= (1<<PORTB0);	//OC1A: Bit 1 von PORT B als Ausgang fuer PWM
 //   PORTB |= (1<<PORTB0);	//LO
 
 
-	DDRB |= (1<<PORTB1);	//OC1A: Bit 1 von PORT B als Ausgang fuer PWM
-	PORTB &= ~(1<<PORTB1);	//LO
+//	DDRB |= (1<<PORTB1);	//OC1A: Bit 1 von PORT B als Ausgang fuer PWM
+//	PORTB &= ~(1<<PORTB1);	//LO
 	
 
 	//LCD
 	LCD_DDR |= (1<<LCD_RSDS_PIN);    //Pin  als Ausgang fuer LCD
  	LCD_DDR |= (1<<LCD_ENABLE_PIN);	//Pin  als Ausgang fuer LCD
 	LCD_DDR |= (1<<LCD_CLOCK_PIN);	//Pin  als Ausgang fuer LCD
-
-#if defined(__AVR_ATmega8__)
-   // Initialize external interrupt 0 (PD2)
-   MCUCR = ((1<<ISC11)|(0<<ISC10)|(1<<ISC01)|(0<<ISC00));	// Set external interupt on falling edge
-   GICR  = ((1<<INT1)|(0<<INT0));							// Activate INT1
-   
-   
-#endif // __AVR_ATmega8__
-   
-#if defined(__AVR_ATmega88A__)
-   EICRA = ((1<<ISC11)|(0<<ISC10)|(1<<ISC01)|(0<<ISC00));	// Set external interupt on falling edge for INT0 and INT1
-   EIMSK  = ((0<<INT1)|(1<<INT0));							// Activate INT0
-#endif // __AVR_ATmega88A__
-   
-#if defined(__AVR_ATmega168__)
-   // Initialize external interrupt on port PD6 (PCINT22)
-   DDRB &= ~(1<<PD6);
-   PCMSK2 = (1<<PCINT22);
-   PCICR  = (1<<PCIE2);
-#endif // __AVR_ATmega168__
-   
-#if defined(__AVR_ATmega32U4__)
-   // Initialize external interrupt on port PD0
-   INTERRUPT_DDR &= ~(1<<INT0_PIN);
-   INTERRUPT_PORT |= (1<<INT0_PIN);
-
-   EICRA = ((1<<ISC11)|(0<<ISC10)|(1<<ISC01)|(0<<ISC00));
-   
-   // Set external interupt on falling edge for INT0 and INT1
-   EIMSK  = ((1<<INT0));
-   
-#endif // __AVR_ATmega32U4__
    
 }
 
@@ -505,23 +474,17 @@ void timer1_comp(void)
 
 void timer1(void)
 {
-   
-   // https://www.mikrocontroller.net/topic/83609
-   
-   int c=0;
+      // https://www.mikrocontroller.net/topic/83609
      
    //TCCR1B |= (1<<CS11); // f/8
   TCCR1B |= (1<<CS11); // f
    TCNT1  = 0;                                          // reset Timer
-   
-                              // Impulsdauer
+            
    OCR1B  = 0x500;            // Impulsdauer des Kanalimpulses
    
    TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt:
  //  TIMSK1 |= (1 << OCIE1B);  // enable timer compare interrupt:
    OCR1A  = Servo_ArrayInt[(impulscounter & 0x07)]; // 
-   
-   
 }
 
 ISR(TIMER1_OVF_vect)
@@ -639,9 +602,15 @@ ISR(TIMER2_COMPA_vect) // ca 4 us
 }
 
 #pragma mark INT1 WL
+ISR(INT0_vect)
+{
+   int0counter++;
+  // wl_spi_status |= (1<<WL_ISR_RECV);
+}
+
 ISR(INT1_vect)
 {
-   
+   int1counter++;
    wl_spi_status |= (1<<WL_ISR_RECV);
 }
 
@@ -696,9 +665,7 @@ int main (void)
    servopinarray[2] = RX_PIN + (R_PORT<<4); // rechter joystick
    servopinarray[3] = RY_PIN + (R_PORT<<4);
 
- 
-   
-   
+    
    deviceinit();
    delay_ms(100);
 //   SPI_Init();
@@ -707,7 +674,7 @@ int main (void)
    lcd_puts("Guten Tag\0");
    delay_ms(200);
    
-   lcd_cls();
+   //lcd_cls();
    lcd_gotoxy(0,0);
    lcd_puts("READY\0");
    
@@ -727,6 +694,7 @@ int main (void)
    
    sei();
    
+   
    wl_module_rx_config();
    
    delay_ms(50);
@@ -742,7 +710,9 @@ int main (void)
    uint8_t readstatus = wl_module_get_data((void*)&wl_data);
    //lcd_puts(" los");
    
-   
+   lcd_gotoxy(16,1);
+  
+   lcd_putint2(readstatus);
    uint8_t eevar=13;
   timer1();
   // timer2();
@@ -759,17 +729,17 @@ int main (void)
       {
          lcd_gotoxy(19,0);
          lcd_putc('$');
-         if (int0counter < 0x2F)
+       //  if (int0counter < 0x2F)
          {
             int0counter++;
          }
-         else
+      //   else
          {
-            int0counter=0;
+      //      int0counter=0;
          }
-         
+         wl_module_rx_config(); // empfangen wieder einstellen
          wl_spi_status &= ~(1<<WL_ISR_RECV);
-         
+         //continue;
          /*
          lcd_gotoxy(6,0);
          lcd_putc('i');
@@ -795,12 +765,14 @@ int main (void)
          
          pipenummer = wl_module_get_rx_pipe();
          
-         delay_ms(3);
+         //delay_ms(3);
          
-         if (pipenummer == WL_PIPE) // Request ist fuer uns, Data schicken
+         
+    //     if (pipenummer == WL_PIPE) // Request ist fuer uns, Data schicken
          {
- //           lcd_gotoxy(14,0);
- //          lcd_puts("p ok");
+            lcd_gotoxy(14,0);
+           lcd_puts("p ok");
+            continue;
             //lcd_gotoxy(0,0);
 //            delay_ms(2);
             //lcd_puts("          ");
@@ -898,14 +870,7 @@ int main (void)
             }
             
          } // if pipenummer
-         else
-         {
-            // lcd_puts("--");
             
-         }
-         
-         
-         
          if (wl_status & (1<<TX_DS)) // IRQ: Package has been sent
          {
             //OSZIA_LO; // 50 ms mit Anzeige, 140us ohne Anzeige
@@ -975,22 +940,14 @@ int main (void)
             //OSZIA_TOGG;
             //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
          }
-         
+
          if ((loopCount1 >0x02AF) )//&& (!(Programmstatus & (1<<MANUELL))))
          {
-             /* 
-            if(OCR1A < 1000)
-            {
-               OCR1A += 10;
-            }
-            else 
-            {
-               OCR1A = 400;
-            }
-*/
-            lcd_gotoxy(0,0);
+             lcd_gotoxy(0,0);
             //lcd_puts(" OCR1A ");
-            //lcd_putint12(OCR1A);
+            lcd_putint(int0counter);
+            lcd_putc(' ');
+            lcd_putint(int1counter);
             LOOPLED_PORT ^= (1<<LOOPLED_PIN);
             
             for (uint8_t pos = 0;pos < 4;pos++)
@@ -1011,38 +968,9 @@ int main (void)
             lcd_putc('p');
             lcd_puthex(pipenummer);
                      
-/*
-            lcd_gotoxy(0,2);
-            
-            uint8_t tempservowert = (uint8_t)servopinarray[2];
-            lcd_puthex(tempservowert);
-            lcd_putc(' ');
-            lcd_puthex((tempservowert & 0xF0)>>4);
-            lcd_putc(' ');
-            lcd_puthex(tempservowert & 0x0F);
-            lcd_putc(' ');
- */
-            // Anzeige PWM
-            /*
-             lcd_gotoxy(0,0);
-             lcd_puts("h ");
-             lcd_putint16(pwmhi);
-             //lcd_gotoxy(8,0);
-             lcd_puts(" p ");
-             lcd_putint16(pwmpuls);
-             //OSZIA_LO;
-             uint16_t pwm = pwmhi*100/pwmpuls; // 2us
-             //OSZIA_HI;
-             lcd_gotoxy(0,1);
-             
-             lcd_puts("m ");
-             lcd_putint12(pwm);
-             */
-            
-            
             // MARK: ADC Loop
             // Batterie lesen
-            uint16_t adc3wert = readKanal(3);
+            //uint16_t adc3wert = readKanal(3);
             
             VREF_Quelle = ADC_REF_INTERNAL;
             uint8_t i=0;
@@ -1148,331 +1076,9 @@ int main (void)
       
       // ***
       // ***
+     
       
-      /*
-       if (!(PINB & (1<<PB0))) // Taste 0
-       {
-       lcd_gotoxy(10,1);
-       lcd_puts("P0 Down\0");
-       lcd_puthex(TastenStatus);
-       
-       if (! (TastenStatus & (1<<PB0))) //Taste 0 war nicht nicht gedrueckt
-       {
-       lcd_gotoxy(10,1);
-       lcd_puts("P0 neu \0");
-       TastenStatus |= (1<<PB0);
-       delay_ms(1000);
-       Tastencount=0;
-       //lcd_gotoxy(3,1);
-       //lcd_puts("P0 \0");
-       //lcd_putint(Servoimpulsdauer);
-       //delay_ms(800);
-       SPDR = 'x';
-       while(!(SPSR & (1<<SPIF)) && spiwaitcounter<0xFFF)
-       {
-       spiwaitcounter++;
-       }
-       spiwaitcounter=0;
-       delay_ms(1000);
-       //lcd_gotoxy(10,1);
-       //lcd_puts("       \0");
-       lcd_gotoxy(19,1);
-       lcd_putc('+');
-       }
-       else
-       {
-       lcd_gotoxy(19,1);
-       lcd_putc('$');
-       //lcd_puts("*         *\0");
-       
-       Tastencount ++;
-       if (Tastencount >= Tastenprellen)
-       {
-       Tastencount=0;
-       TastenStatus &= ~(1<<PB0);
-       lcd_gotoxy(10,1);
-       lcd_puts("*         *\0");
-       
-       
-       
-       }
-       }//	else
-       
-       } // Taste 0
-       */
-      
-#pragma mark Tastatur
-      /* ******************** */
-      //		initADC(TASTATURPIN);
-      //		Tastenwert=(readKanal(TASTATURPIN)>>2);
-      
-      //		lcd_gotoxy(3,1);
-      //		lcd_putint(Tastenwert);
-      //		Tastenwert=0;
-      if (Tastenwert>5)
-      {
-         /*
-          0:											1	2	3
-          1:											4	5	6
-          2:											7	8	9
-          3:											x	0	y
-          4: Schalterpos -
-          5: Manuell ein
-          6: Schalterpos +
-          7:
-          8:
-          9:
-          
-          12: Manuell aus
-          */
-         
-         TastaturCount++;
-         if (TastaturCount>=200)
-         {
-            
-            
-            //lcd_gotoxy(17,1);
-            //lcd_puts("T:  \0");
-            //lcd_putint(Tastenwert);
-            
-            uint8_t Taste=Tastenwahl(Tastenwert);
-            //Taste=0;
-            //lcd_gotoxy(19,1);
-            //lcd_putint1(Taste);
-            //delay_ms(600);
-            // lcd_clr_line(1);
-            
-            
-            TastaturCount=0;
-            Tastenwert=0x00;
-            uint8_t i=0;
-            uint8_t pos=0;
-            //				lcd_gotoxy(18,1);
-            //				lcd_putint2(Taste);
-            continue;
-            switch (Taste)
-            {
-               case 0:// Schalter auf Null-Position
-               {
-                  if (Programmstatus & (1<<MANUELL))
-                  {
-                     Manuellcounter=0;
-                     Programmstatus |= (1<<MANUELLNEU);
-                     /*
-                      lcd_gotoxy(13,0);
-                      lcd_puts("S\0");
-                      lcd_gotoxy(19,0);
-                      lcd_putint1(Schalterposition); // Schalterstellung
-                      lcd_gotoxy(0,1);
-                      lcd_puts("SI:\0");
-                      lcd_putint(ServoimpulsdauerSpeicher); // Servoimpulsdauer
-                      lcd_gotoxy(5,0);
-                      lcd_puts("SP\0");
-                      lcd_putint(Servoimpulsdauer); // Servoimpulsdauer
-                      */
-                  }
-                  
-               }break;
-                  
-               case 1:	//
-               {
-                  if (Programmstatus & (1<<MANUELL))
-                  {
-                     uint8_t i=0;
-                     lcd_gotoxy(0,0);
-                     lcd_puts("Sens\0");
-                     lcd_putc('1');
-                     lcd_putc(' ');
-                     /*
-                      for (i=0;i<OW_ROMCODE_SIZE;i++)
-                      {
-                      lcd_puthex(gSensorIDs[0][i]);
-                      if (i==3)
-                      {
-                      lcd_gotoxy(0,1);
-                      }
-                      lcd_putc(' ');
-                      }
-                      */
-                     Manuellcounter=0;
-                     
-                  }
-               }break;
-                  
-               case 2://
-               {
-                  
-                  if (Programmstatus & (1<<MANUELL))
-                  {
-                     /*
-                      uint8_t i=0;
-                      lcd_gotoxy(0,0);
-                      lcd_puts("Sens\0");
-                      lcd_putc('1');
-                      lcd_putc(' ');
-                      for (i=0;i<OW_ROMCODE_SIZE;i++)
-                      {
-                      lcd_puthex(gSensorIDs[1][i]);
-                      if (i==3)
-                      {
-                      lcd_gotoxy(0,1);
-                      }
-                      lcd_putc(' ');
-                      }
-                      */
-                     Manuellcounter=0;
-                     
-                     
-                  }
-                  
-               }break;
-                  
-               case 3: //	Uhr aus
-               {
-                  if (Programmstatus & (1<<MANUELL))
-                  {
-                     /*
-                      uint8_t i=0;
-                      lcd_gotoxy(0,0);
-                      lcd_puts("Sens\0");
-                      lcd_putc('1');
-                      lcd_putc(' ');
-                      for (i=0;i<OW_ROMCODE_SIZE;i++)
-                      {
-                      lcd_puthex(gSensorIDs[2][i]);
-                      if (i==3)
-                      {
-                      lcd_gotoxy(0,1);
-                      }
-                      lcd_putc(' ');
-                      }
-                      */
-                     Manuellcounter=0;
-                     
-                     
-                  }
-               }break;
-                  
-               case 4://
-               { 
-                  //DS18X20_read_scratchpad(&gSensorIDs[0][0], gScratchPad );
-                  /*
-                   uint8_t i=0;
-                   lcd_gotoxy(0,0);
-                   lcd_puts("Sens\0");
-                   lcd_putc('0');
-                   lcd_putc(' ');
-                   for (i=0;i<OW_ROMCODE_SIZE;i++)
-                   {
-                   lcd_puthex(gScratchPad[i]);
-                   if (i==3)
-                   {
-                   lcd_gotoxy(0,1);
-                   }
-                   lcd_putc(' ');
-                   }
-                   */
-               }break;
-                  
-               case 5://
-               { 
-                  Programmstatus |= (1<<MANUELL);	// MANUELL ON
-                  Manuellcounter=0;
-                  MANUELL_PORT |= (1<<MANUELLPIN);
-                  Programmstatus |= (1<<MANUELLNEU);
-                  lcd_clr_line(1);
-                  /*
-                   lcd_gotoxy(13,0);
-                   lcd_puts("S\0");
-                   lcd_putint1(Schalterposition); // Schalterstellung
-                   lcd_gotoxy(0,1);
-                   lcd_puts("SP:\0");
-                   lcd_putint(ServoimpulsdauerSpeicher); // Servoimpulsdauer
-                   lcd_gotoxy(5,0);
-                   lcd_puts("SI\0");
-                   lcd_putint(Servoimpulsdauer); // Servoimpulsdauer
-                   */
-               }break;
-                  
-               case 6://
-               { 
-                  //sensornummer=0xAF;
-                  //Sensornummerlesen(0,&sensornummer);
-                  //	lcd_gotoxy(0,0);
-                  //	lcd_puts("Sens\0");
-                  //	lcd_putc('1');
-                  //	lcd_putc(' ');
-                  //	lcd_puthex(sensornummer);
-                  
-               }break;
-                  
-               case 7:// Schalter rückwaerts
-               {
-                  /*
-                   sensornummer=0x00;
-                   Sensornummerlesen(0,&sensornummer);
-                   lcd_gotoxy(0,0);
-                   lcd_puts("Sens\0");
-                   lcd_putc('0');
-                   lcd_putc(' ');
-                   lcd_puthex(sensornummer);
-                   */
-               }break;
-                  
-               case 8://
-               {
-                  /*
-                   sensornummer=0x00;
-                   Sensornummerlesen(1,&sensornummer);
-                   lcd_gotoxy(0,0);
-                   lcd_puts("Sens\0");
-                   lcd_putc('1');
-                   lcd_putc(' ');
-                   lcd_puthex(sensornummer);
-                   */
-                  
-               }break;
-                  
-               case 9:// Schalter vorwaerts
-               {
-                  /*
-                   sensornummer=0x00;
-                   Sensornummerlesen(2,&sensornummer);
-                   lcd_gotoxy(0,0);
-                   lcd_puts("Sens\0");
-                   lcd_putc('2');
-                   lcd_putc(' ');
-                   lcd_puthex(sensornummer);
-                   */
-               }break;
-                  
-               case 10:// *
-               { 
-                  
-               }break;
-                  
-               case 11://
-               { 
-                  
-               }break;
-                  
-               case 12: // # Normalbetrieb einschalten
-               {
-                  Programmstatus &= ~(1<<MANUELL); // MANUELL OFF
-                  Programmstatus &= ~(1<<MANUELLNEU);
-                  MANUELL_PORT &= ~(1<<MANUELLPIN);
-               }
-                  
-            }//switch Tastatur
-            
-            //				delay_ms(400);
-            //				lcd_gotoxy(18,1);
-            //				lcd_puts("  ");		// Tastenanzeige loeschen
-            
-         }//if TastaturCount	
-         
-      }
-   }
+   } // while
    
    
    return 0;

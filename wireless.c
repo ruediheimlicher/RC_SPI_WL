@@ -14,7 +14,7 @@
 
 #define WL_SS       DDB2
 
-#define WL_PIPE   1
+//#define WL_PIPE   1
 
 void wl_spi_init()
 

@@ -60,7 +60,7 @@
 #define INTERRUPT_DDR   DDRD
 
 #define INT0_PIN        PD2
-#define INT1_PIN        PD3
+//#define INT1_PIN        PD3
 
 // Port fuer Chip select
 #define SPI_WL_PORT     PORTC

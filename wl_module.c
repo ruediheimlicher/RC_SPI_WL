@@ -32,7 +32,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-
+#include "defines.h"
 // Defines for setting the wl_module registers for transmitting or receiving mode
 #define TX_POWERUP wl_module_config_register(CONFIG, wl_module_CONFIG | ( (1<<PWR_UP) | (0<<PRIM_RX) ) )
 #define RX_POWERUP wl_module_config_register(CONFIG, wl_module_CONFIG | ( (1<<PWR_UP) | (1<<PRIM_RX) ) )
@@ -51,44 +51,18 @@ void wl_module_init()
    SPI_WL_PORT    |= (1<<SPI_WL_CSN);	//HI
    
  
-   // Interrupt auf INT1
-   INTERRUPT_DDR &= ~(1<<INT1_PIN);
-   INTERRUPT_PORT |= (1<<INT1_PIN);
+   // Interrupt auf INT0
+   INTERRUPT_DDR &= ~(1<<INT0_PIN);
+   INTERRUPT_PORT |= (1<<INT0_PIN);
    
    
    wl_module_CE_lo;
    wl_module_CSN_hi;
    
-#if defined(__AVR_ATmega8__)
-   // Initialize external interrupt 0 (PD2)
-   MCUCR = ((1<<ISC11));	// Set external interupt on falling edge
-   GICR  = ((1<<INT1));							// Activate INT1
-#endif // __AVR_ATmega8__
-   
-#if defined(__AVR_ATmega88A__)
-   EICRA = ((1<<ISC11)|(0<<ISC10)|(1<<ISC01)|(0<<ISC00));	// Set external interupt on falling edge for INT0 and INT1
-   EIMSK  = ((0<<INT1)|(1<<INT0));							// Activate INT0
-#endif // __AVR_ATmega88A__
-   
-#if defined(__AVR_ATmega168__)
-   // Initialize external interrupt on port PD6 (PCINT22)
-   DDRB &= ~(1<<PD6);
-   PCMSK2 = (1<<PCINT22);
-   PCICR  = (1<<PCIE2);
-#endif // __AVR_ATmega168__
-   
-#if defined(__AVR_ATmega32U4__)
-   // Initialize external interrupt on port PD0
-   INTERRUPT_DDR &= ~(1<<INT0_PIN);
-   INTERRUPT_PORT |= (1<<INT0_PIN);
-   
-   EICRA = ((1<<ISC11)|(0<<ISC10)|(1<<ISC01)|(0<<ISC00));
-   // Set external interupt on falling edge for INT0 and INT1
-   EIMSK  = ((0<<INT1)|(1<<INT0));
-   
-#endif // __AVR_ATmega32U4__
-   
-   
+   EICRA |= (1<<ISC01)|(0<<ISC00);   // Set external interupt on falling edge for INT0 
+   EIMSK  |= (1<<INT0);                     // Activate INT0
+
+  
    
    // Initialize spi module
    wl_spi_init();
@@ -224,6 +198,9 @@ extern void wl_module_tx_config(uint8_t tx_nr)
     wl_module_CE_hi;     // Listening for pakets
     */
 }
+
+
+
 
 //sets the TX address in the TX_ADDR register
 //unsigned char * address is the actual address to be used.  It should be sized

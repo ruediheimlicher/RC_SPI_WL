@@ -60,7 +60,7 @@ extern volatile uint8_t PTX;
  #define WL_DDR    DDRC
  */
 /*
- // in defines.h
+ // > in defines.h
 // Port fuer INT0
 #define INTERRUPT_PORT   PORTD
 #define INTERRUPT_DDR   DDRD
