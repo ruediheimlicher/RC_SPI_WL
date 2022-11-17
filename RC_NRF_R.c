@@ -744,7 +744,7 @@ int main (void)
    
    
    uint8_t eevar=13;
-  timer1();
+   timer1();
   // timer2();
    sei();
    while (1)
@@ -973,7 +973,7 @@ int main (void)
          if (loopCount1 >0xAF)
          {
             //OSZIA_TOGG;
-            //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+            LOOPLED_PORT ^= (1<<LOOPLED_PIN);
          }
          
          if ((loopCount1 >0x02AF) )//&& (!(Programmstatus & (1<<MANUELL))))
@@ -988,10 +988,10 @@ int main (void)
                OCR1A = 400;
             }
 */
-            lcd_gotoxy(0,0);
+            //lcd_gotoxy(0,0);
             //lcd_puts(" OCR1A ");
             //lcd_putint12(OCR1A);
-            LOOPLED_PORT ^= (1<<LOOPLED_PIN);
+            //LOOPLED_PORT ^= (1<<LOOPLED_PIN);
             
             for (uint8_t pos = 0;pos < 4;pos++)
             {
